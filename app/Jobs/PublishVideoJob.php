@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Mail\VideoPublished;
 use App\Models\Video;
 use App\Models\YoutubeConnection;
 use App\Services\Shorts\ShortsSettings;
@@ -11,6 +12,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\Mail;
 use Throwable;
 
 class PublishVideoJob implements ShouldBeUnique, ShouldQueue
@@ -50,7 +52,7 @@ class PublishVideoJob implements ShouldBeUnique, ShouldQueue
         }
 
         if ($video->youtube_video_id) {
-            $this->markPublished($video, $video->youtube_video_id);
+            $this->markPublished($video, $video->youtube_video_id, $video->publish_status !== Video::PUBLISH_PUBLISHED);
 
             return;
         }
@@ -114,7 +116,7 @@ class PublishVideoJob implements ShouldBeUnique, ShouldQueue
         }
     }
 
-    private function markPublished(Video $video, string $youtubeId): void
+    private function markPublished(Video $video, string $youtubeId, bool $notify = true): void
     {
         $native = ShortsSettings::get('upload_mode') === 'native_schedule' && $video->scheduled_at?->isFuture();
 
@@ -125,6 +127,28 @@ class PublishVideoJob implements ShouldBeUnique, ShouldQueue
             'upload_session_uri' => null,
             'publish_error' => null,
         ]);
+
+        if ($notify) {
+            $this->sendPublishedEmail($video->refresh(), $native);
+        }
+    }
+
+    /**
+     * Email the owner a link to the new video. A mail problem must never turn a successful upload into a failure.
+     */
+    private function sendPublishedEmail(Video $video, bool $scheduledOnYouTube): void
+    {
+        $recipient = config('shorts.notify_email');
+
+        if (! $recipient) {
+            return;
+        }
+
+        try {
+            Mail::to($recipient)->queue(new VideoPublished($video, $scheduledOnYouTube));
+        } catch (Throwable $e) {
+            report($e);
+        }
     }
 
     private function markFailed(Video $video, string $message): void
