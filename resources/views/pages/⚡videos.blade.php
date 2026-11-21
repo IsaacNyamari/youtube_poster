@@ -9,6 +9,7 @@ use App\Services\Shorts\ShortsSettings;
 use App\Services\Shorts\VideoGenerator;
 use Carbon\CarbonImmutable;
 use Flux\Flux;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
@@ -93,7 +94,7 @@ new #[Title('Videos')] class extends Component {
     {
         $this->validate(['generateCount' => 'required|integer|min:1|max:5000']);
 
-        GenerateVideosJob::dispatch($this->generateCount);
+        GenerateVideosJob::dispatch($this->generateCount, Auth::id());
 
         Flux::toast(variant: 'success', text: __(':count videos queued for generation.', ['count' => $this->generateCount]));
     }

@@ -8,6 +8,7 @@ use App\Models\YoutubeConnection;
 use App\Services\Shorts\ShortsSettings;
 use App\Services\Shorts\YouTubeApiException;
 use App\Services\Shorts\YouTubeClient;
+use App\Support\Tenant;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -45,12 +46,17 @@ class PublishVideoJob implements ShouldBeUnique, ShouldQueue
 
     public function handle(YouTubeClient $youtube): void
     {
-        $video = Video::query()->find($this->videoId);
+        $video = Video::query()->withoutGlobalScopes()->find($this->videoId);
 
         if ($video === null) {
             return;
         }
 
+        Tenant::run($video->user_id, fn () => $this->publish($video, $youtube));
+    }
+
+    private function publish(Video $video, YouTubeClient $youtube): void
+    {
         if ($video->youtube_video_id) {
             $this->markPublished($video, $video->youtube_video_id, $video->publish_status !== Video::PUBLISH_PUBLISHED);
 
@@ -109,7 +115,7 @@ class PublishVideoJob implements ShouldBeUnique, ShouldQueue
 
     public function failed(Throwable $exception): void
     {
-        $video = Video::query()->find($this->videoId);
+        $video = Video::query()->withoutGlobalScopes()->find($this->videoId);
 
         if ($video && ! $video->youtube_video_id && $video->publish_status === Video::PUBLISH_PUBLISHING) {
             $this->markFailed($video, $exception->getMessage());
@@ -138,14 +144,17 @@ class PublishVideoJob implements ShouldBeUnique, ShouldQueue
      */
     private function sendPublishedEmail(Video $video, bool $scheduledOnYouTube): void
     {
-        $recipient = config('shorts.notify_email');
+        $recipient = $video->user?->email;
 
-        if (! $recipient) {
+        if (! $recipient || ! ShortsSettings::get('notify_published')) {
             return;
         }
 
+        $timezone = (string) ShortsSettings::get('timezone');
+        $when = $video->published_at?->setTimezone($timezone)->format('D, M j Y · H:i').' ('.$timezone.')';
+
         try {
-            Mail::to($recipient)->queue(new VideoPublished($video, $scheduledOnYouTube));
+            Mail::to($recipient)->queue(new VideoPublished($video, $scheduledOnYouTube, (string) $when));
         } catch (Throwable $e) {
             report($e);
         }

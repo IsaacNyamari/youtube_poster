@@ -6,25 +6,23 @@ use App\Jobs\PublishVideoJob;
 use App\Models\Video;
 use App\Models\YoutubeConnection;
 use App\Services\Shorts\ShortsSettings;
+use App\Support\Tenant;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
 
 #[Signature('shorts:publish-due')]
-#[Description('Queue uploads for scheduled videos that are due')]
+#[Description('Queue uploads for scheduled videos that are due, for every user')]
 class PublishDueVideos extends Command
 {
-    private const MAX_PER_RUN = 5;
+    /**
+     * Uploads started per user per run. YouTube's quota is shared by every user, so this stays small.
+     */
+    private const MAX_PER_USER_PER_RUN = 5;
 
     public function handle(): int
     {
         $this->recoverStuckUploads();
-
-        if (ShortsSettings::isPaused()) {
-            $this->info('Publishing is paused.');
-
-            return self::SUCCESS;
-        }
 
         if (ShortsSettings::quotaBlockedUntil() !== null) {
             $this->info('YouTube quota reached; waiting until it resets.');
@@ -32,12 +30,30 @@ class PublishDueVideos extends Command
             return self::SUCCESS;
         }
 
+        $queued = 0;
+
+        Tenant::eachUser(function ($user) use (&$queued): void {
+            $queued += $this->queueDueFor();
+        });
+
+        $this->info("Queued {$queued} upload(s).");
+
+        return self::SUCCESS;
+    }
+
+    /**
+     * Claim and queue the due videos of the current user.
+     */
+    private function queueDueFor(): int
+    {
+        if (ShortsSettings::isPaused()) {
+            return 0;
+        }
+
         $connection = YoutubeConnection::current();
 
         if ($connection === null || $connection->needs_reauth) {
-            $this->warn('No usable YouTube connection.');
-
-            return self::SUCCESS;
+            return 0;
         }
 
         $cutoff = ShortsSettings::get('upload_mode') === 'native_schedule' ? now()->addDay() : now();
@@ -47,7 +63,7 @@ class PublishDueVideos extends Command
             ->where('publish_status', Video::PUBLISH_SCHEDULED)
             ->where('scheduled_at', '<=', $cutoff)
             ->orderBy('scheduled_at')
-            ->limit(self::MAX_PER_RUN)
+            ->limit(self::MAX_PER_USER_PER_RUN)
             ->pluck('id');
 
         $queued = 0;
@@ -64,9 +80,7 @@ class PublishDueVideos extends Command
             }
         }
 
-        $this->info("Queued {$queued} upload(s).");
-
-        return self::SUCCESS;
+        return $queued;
     }
 
     /**
@@ -75,6 +89,7 @@ class PublishDueVideos extends Command
     private function recoverStuckUploads(): void
     {
         Video::query()
+            ->withoutGlobalScopes()
             ->where('publish_status', Video::PUBLISH_PUBLISHING)
             ->whereNull('youtube_video_id')
             ->where('updated_at', '<', now()->subMinutes(90))

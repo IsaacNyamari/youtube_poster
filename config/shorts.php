@@ -20,11 +20,11 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Email a link to this address after every successful upload
+    | Fairness between users sharing one render queue
     |--------------------------------------------------------------------------
     */
 
-    'notify_email' => env('NOTIFY_EMAIL'),
+    'max_pending_renders_per_user' => (int) env('SHORTS_MAX_PENDING_RENDERS', 100),
 
     /*
     |--------------------------------------------------------------------------

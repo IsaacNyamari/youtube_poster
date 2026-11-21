@@ -3,7 +3,6 @@
 namespace App\Mail;
 
 use App\Models\Video;
-use App\Services\Shorts\ShortsSettings;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
@@ -17,7 +16,7 @@ class VideoPublished extends Mailable implements ShouldQueue
 
     public int $tries = 3;
 
-    public function __construct(public Video $video, public bool $scheduledOnYouTube = false) {}
+    public function __construct(public Video $video, public bool $scheduledOnYouTube = false, public string $when = '') {}
 
     public function envelope(): Envelope
     {
@@ -28,15 +27,13 @@ class VideoPublished extends Mailable implements ShouldQueue
 
     public function content(): Content
     {
-        $timezone = (string) ShortsSettings::get('timezone');
-
         return new Content(
             markdown: 'mail.video-published',
             with: [
                 'video' => $this->video,
                 'url' => $this->video->youtubeUrl(),
                 'watchUrl' => 'https://www.youtube.com/watch?v='.$this->video->youtube_video_id,
-                'when' => $this->video->published_at?->setTimezone($timezone)->format('D, M j Y · H:i').' ('.$timezone.')',
+                'when' => $this->when,
                 'scheduledOnYouTube' => $this->scheduledOnYouTube,
             ],
         );

@@ -39,10 +39,10 @@ class VideoRenderer
 
         try {
             $name = Str::uuid()->toString();
-            $folder = now()->format('Y/m');
+            $folder = "users/{$video->user_id}/".now()->format('Y/m');
             $disk = Storage::disk(config('shorts.disk'));
-            $disk->makeDirectory("videos/{$folder}");
-            $disk->makeDirectory("thumbnails/{$folder}");
+            $disk->makeDirectory("{$folder}/videos");
+            $disk->makeDirectory("{$folder}/thumbnails");
 
             $paths = [
                 'base' => $workDir.DIRECTORY_SEPARATOR.'base.png',
@@ -60,8 +60,8 @@ class VideoRenderer
 
             $this->ffmpeg->run(['-i', $paths['base'], '-vf', 'scale=540:960', '-frames:v', '1', '-q:v', '3', $paths['thumb']]);
 
-            $videoPath = "videos/{$folder}/{$name}.mp4";
-            $thumbPath = "thumbnails/{$folder}/{$name}.jpg";
+            $videoPath = "{$folder}/videos/{$name}.mp4";
+            $thumbPath = "{$folder}/thumbnails/{$name}.jpg";
             File::move($paths['video'], $disk->path($videoPath));
             File::move($paths['thumb'], $disk->path($thumbPath));
 

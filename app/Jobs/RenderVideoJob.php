@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Models\Video;
 use App\Services\Shorts\VideoRenderer;
+use App\Support\Tenant;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 
@@ -22,12 +23,12 @@ class RenderVideoJob implements ShouldQueue
 
     public function handle(VideoRenderer $renderer): void
     {
-        $video = Video::query()->find($this->videoId);
+        $video = Video::query()->withoutGlobalScopes()->find($this->videoId);
 
         if ($video === null || $video->render_status === Video::RENDER_READY) {
             return;
         }
 
-        $renderer->render($video);
+        Tenant::run($video->user_id, fn () => $renderer->render($video));
     }
 }

@@ -18,6 +18,7 @@ class CleanupPublishedVideos extends Command
         $bytes = 0;
 
         Video::query()
+            ->withoutGlobalScopes()
             ->where('publish_status', Video::PUBLISH_PUBLISHED)
             ->whereNotNull('youtube_video_id')
             ->where(fn ($query) => $query->whereNotNull('file_path')->orWhereNotNull('thumbnail_path'))

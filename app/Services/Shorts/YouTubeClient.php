@@ -64,10 +64,10 @@ class YouTubeClient
         $tokens = $response->json();
         $channel = $this->fetchChannel($tokens['access_token']);
 
-        $existing = YoutubeConnection::current();
+        $existing = YoutubeConnection::query()->withoutGlobalScopes()->where('user_id', $user->id)->first();
 
-        $connection = YoutubeConnection::query()->updateOrCreate(
-            ['id' => $existing?->id],
+        $connection = YoutubeConnection::query()->withoutGlobalScopes()->updateOrCreate(
+            ['user_id' => $user->id],
             [
                 'user_id' => $user->id,
                 'channel_id' => $channel['id'],

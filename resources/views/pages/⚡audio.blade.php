@@ -3,6 +3,7 @@
 use App\Models\AudioTrack;
 use App\Services\Shorts\Ffmpeg;
 use Flux\Flux;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Livewire\Attributes\Computed;
@@ -45,7 +46,7 @@ new #[Title('Audio Library')] class extends Component {
 
         foreach ($this->uploads as $file) {
             $extension = strtolower($file->getClientOriginalExtension() ?: 'mp3');
-            $path = $file->storeAs('audio', Str::uuid().'.'.$extension, config('shorts.disk'));
+            $path = $file->storeAs('users/'.Auth::id().'/audio', Str::uuid().'.'.$extension, config('shorts.disk'));
 
             AudioTrack::create([
                 'title' => Str::limit(pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME), 120, ''),

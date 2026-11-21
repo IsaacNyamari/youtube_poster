@@ -2,17 +2,22 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Storage;
 
 #[Fillable([
+    'user_id',
     'title', 'original_name', 'path', 'mime_type', 'size', 'duration',
     'license_type', 'license_note', 'is_active', 'times_used', 'last_used_at',
 ])]
 class AudioTrack extends Model
 {
+    use BelongsToTenant, HasFactory;
+
     public const LICENSES = [
         'licensed' => 'Licensed for commercial use',
         'public_domain' => 'Public domain',
