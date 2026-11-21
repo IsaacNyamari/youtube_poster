@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/login')->name('home');
 
+Route::view('about', 'legal.about')->name('about');
 Route::view('privacy', 'legal.privacy')->name('privacy');
 Route::view('terms', 'legal.terms')->name('terms');
 

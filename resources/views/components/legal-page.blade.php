@@ -19,6 +19,7 @@
             </article>
 
             <footer class="flex gap-4 border-t border-zinc-200 pt-4 text-xs text-zinc-500 dark:border-zinc-700">
+                <a href="{{ route('about') }}" class="hover:underline">{{ __('About') }}</a>
                 <a href="{{ route('privacy') }}" class="hover:underline">{{ __('Privacy Policy') }}</a>
                 <a href="{{ route('terms') }}" class="hover:underline">{{ __('Terms of Service') }}</a>
                 <a href="{{ route('login') }}" class="hover:underline">{{ __('Log in') }}</a>
