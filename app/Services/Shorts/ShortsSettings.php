@@ -13,11 +13,11 @@ use Illuminate\Support\Facades\DB;
 class ShortsSettings
 {
     /**
-     * Keys stored once for the installation, not per user. The YouTube API quota belongs to the Google project.
+     * Keys stored once for the installation, not per user.
      *
      * @var list<string>
      */
-    public const GLOBAL_KEYS = ['deploy_branch', 'deploy_webhook_secret', 'quota_blocked_until'];
+    public const GLOBAL_KEYS = ['deploy_branch', 'deploy_webhook_secret'];
 
     /**
      * @return array<string, mixed>

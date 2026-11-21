@@ -12,14 +12,14 @@ class YouTubeOAuthController extends Controller
 {
     public function redirect(Request $request, YouTubeClient $youtube): RedirectResponse
     {
-        if (! $youtube->isConfigured()) {
-            return redirect()->route('youtube.edit')->with('youtube_error', 'Set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET and GOOGLE_REDIRECT_URI in .env first.');
+        if (! $youtube->isConfigured($request->user())) {
+            return redirect()->route('youtube.edit')->with('youtube_error', 'Add your own Google OAuth client ID and secret first.');
         }
 
         $state = Str::random(40);
         $request->session()->put('youtube_oauth_state', $state);
 
-        return redirect()->away($youtube->authorizationUrl($state));
+        return redirect()->away($youtube->authorizationUrl($request->user(), $state));
     }
 
     public function callback(Request $request, YouTubeClient $youtube): RedirectResponse

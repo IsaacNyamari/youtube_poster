@@ -16,19 +16,13 @@ use Illuminate\Console\Command;
 class PublishDueVideos extends Command
 {
     /**
-     * Uploads started per user per run. YouTube's quota is shared by every user, so this stays small.
+     * Uploads started per user per run. Each user has their own Google project and quota, which this stays well within.
      */
     private const MAX_PER_USER_PER_RUN = 5;
 
     public function handle(): int
     {
         $this->recoverStuckUploads();
-
-        if (ShortsSettings::quotaBlockedUntil() !== null) {
-            $this->info('YouTube quota reached; waiting until it resets.');
-
-            return self::SUCCESS;
-        }
 
         $queued = 0;
 
@@ -46,7 +40,7 @@ class PublishDueVideos extends Command
      */
     private function queueDueFor(): int
     {
-        if (ShortsSettings::isPaused()) {
+        if (ShortsSettings::isPaused() || ShortsSettings::quotaBlockedUntil() !== null) {
             return 0;
         }
 

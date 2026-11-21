@@ -6,15 +6,19 @@ use App\Jobs\GenerateVideosJob;
 use App\Jobs\PublishVideoJob;
 use App\Jobs\RenderVideoJob;
 use App\Models\AudioTrack;
+use App\Models\GoogleCredential;
 use App\Models\User;
 use App\Models\Video;
 use App\Models\YoutubeConnection;
 use App\Services\Shorts\ShortsSettings;
 use App\Services\Shorts\VideoGenerator;
+use App\Services\Shorts\YouTubeApiException;
+use App\Services\Shorts\YouTubeClient;
 use App\Support\Tenant;
 use Illuminate\Database\QueryException;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -104,11 +108,155 @@ class TenancyTest extends TestCase
         $bob = User::factory()->create();
 
         $this->actingAs($alice);
-        ShortsSettings::set('quota_blocked_until', now()->addHour()->toIso8601String());
+        ShortsSettings::set('deploy_branch', 'release/1.0.1');
 
         $this->actingAs($bob);
 
-        $this->assertNotNull(ShortsSettings::quotaBlockedUntil());
+        $this->assertSame('release/1.0.1', ShortsSettings::get('deploy_branch'));
+    }
+
+    public function test_the_youtube_quota_block_belongs_to_each_users_own_google_project(): void
+    {
+        $alice = User::factory()->create();
+        $bob = User::factory()->create();
+
+        Tenant::run($alice->id, fn () => ShortsSettings::set('quota_blocked_until', now()->addHour()->toIso8601String()));
+
+        $this->assertNotNull(Tenant::run($alice->id, fn () => ShortsSettings::quotaBlockedUntil()));
+        $this->assertNull(Tenant::run($bob->id, fn () => ShortsSettings::quotaBlockedUntil()));
+    }
+
+    public function test_each_user_has_their_own_google_credentials(): void
+    {
+        $alice = User::factory()->create();
+        $bob = User::factory()->create();
+
+        GoogleCredential::create(['user_id' => $alice->id, 'client_id' => '111-alice.apps.googleusercontent.com', 'client_secret' => 'alice-secret-value']);
+        GoogleCredential::create(['user_id' => $bob->id, 'client_id' => '222-bob.apps.googleusercontent.com', 'client_secret' => 'bob-secret-value']);
+
+        $this->actingAs($alice);
+
+        $this->assertSame(1, GoogleCredential::count());
+        $this->assertSame('111-alice.apps.googleusercontent.com', GoogleCredential::first()->client_id);
+        $this->assertSame('alice-secret-value', GoogleCredential::first()->client_secret);
+        $this->assertArrayNotHasKey('client_secret', GoogleCredential::first()->toArray());
+
+        $stored = DB::table('google_credentials')->where('user_id', $alice->id)->value('client_secret');
+        $this->assertStringNotContainsString('alice-secret-value', $stored);
+    }
+
+    public function test_the_authorisation_url_uses_the_users_own_client_id(): void
+    {
+        $alice = User::factory()->create();
+        $bob = User::factory()->create();
+        $carol = User::factory()->create();
+
+        GoogleCredential::create(['user_id' => $alice->id, 'client_id' => '111-alice.apps.googleusercontent.com', 'client_secret' => 'alice-secret-value']);
+        GoogleCredential::create(['user_id' => $bob->id, 'client_id' => '222-bob.apps.googleusercontent.com', 'client_secret' => 'bob-secret-value']);
+
+        $client = app(YouTubeClient::class);
+        $url = $client->authorizationUrl($alice, 'state123');
+
+        $this->assertStringContainsString('client_id=111-alice.apps.googleusercontent.com', $url);
+        $this->assertStringNotContainsString('222-bob', $url);
+        $this->assertStringContainsString(rawurlencode(YouTubeClient::redirectUri()), $url);
+        $this->assertTrue($client->isConfigured($alice));
+        $this->assertFalse($client->isConfigured($carol));
+
+        $this->expectException(YouTubeApiException::class);
+        $client->authorizationUrl($carol, 'state123');
+    }
+
+    public function test_connecting_requires_the_users_own_credentials(): void
+    {
+        $alice = User::factory()->create();
+        $bob = User::factory()->create();
+        GoogleCredential::create(['user_id' => $bob->id, 'client_id' => '222-bob.apps.googleusercontent.com', 'client_secret' => 'bob-secret-value']);
+
+        $this->actingAs($alice)->get(route('youtube.connect'))
+            ->assertRedirect(route('youtube.edit'))
+            ->assertSessionHas('youtube_error');
+
+        $this->actingAs($bob)->get(route('youtube.connect'))
+            ->assertRedirectContains('accounts.google.com')
+            ->assertRedirectContains('222-bob.apps.googleusercontent.com');
+    }
+
+    public function test_credentials_can_be_saved_from_a_downloaded_json_file(): void
+    {
+        $alice = User::factory()->create();
+        $bob = User::factory()->create();
+
+        $json = json_encode(['web' => [
+            'client_id' => '333-alice.apps.googleusercontent.com',
+            'client_secret' => 'GOCSPX-alice-secret',
+            'project_id' => 'alice-project',
+            'redirect_uris' => [YouTubeClient::redirectUri()],
+        ]]);
+
+        Livewire::actingAs($alice)->test('pages::youtube')
+            ->set('credentialsJson', $json)
+            ->call('saveCredentials')
+            ->assertHasNoErrors();
+
+        $saved = GoogleCredential::withoutGlobalScopes()->where('user_id', $alice->id)->first();
+
+        $this->assertSame('333-alice.apps.googleusercontent.com', $saved->client_id);
+        $this->assertSame('alice-project', $saved->project_id);
+        $this->assertNull(GoogleCredential::withoutGlobalScopes()->where('user_id', $bob->id)->first());
+    }
+
+    public function test_invalid_credentials_are_rejected(): void
+    {
+        $alice = User::factory()->create();
+
+        Livewire::actingAs($alice)->test('pages::youtube')
+            ->set('credentialsJson', '{"installed":{"client_id":"x"}}')
+            ->call('saveCredentials')
+            ->assertHasErrors('credentialsJson');
+
+        Livewire::actingAs($alice)->test('pages::youtube')
+            ->set('clientId', 'not-a-client-id')
+            ->set('clientSecret', 'some-long-secret')
+            ->call('saveCredentials')
+            ->assertHasErrors('clientId');
+    }
+
+    public function test_switching_to_a_different_google_project_drops_the_old_connection(): void
+    {
+        $alice = User::factory()->create();
+        GoogleCredential::create(['user_id' => $alice->id, 'client_id' => '111-old.apps.googleusercontent.com', 'client_secret' => 'old-secret-value']);
+        YoutubeConnection::create(['user_id' => $alice->id, 'channel_id' => 'UC1', 'channel_title' => 'Old', 'access_token' => 't', 'refresh_token' => 'r']);
+
+        Livewire::actingAs($alice)->test('pages::youtube')
+            ->set('clientId', '999-new.apps.googleusercontent.com')
+            ->set('clientSecret', 'new-secret-value')
+            ->call('saveCredentials')
+            ->assertHasNoErrors();
+
+        $this->assertSame(0, YoutubeConnection::withoutGlobalScopes()->where('user_id', $alice->id)->count());
+        $this->assertSame('999-new.apps.googleusercontent.com', GoogleCredential::withoutGlobalScopes()->where('user_id', $alice->id)->value('client_id'));
+    }
+
+    public function test_publish_due_skips_a_user_whose_own_quota_is_used_up(): void
+    {
+        Queue::fake();
+
+        $alice = User::factory()->create();
+        $bob = User::factory()->create();
+
+        foreach ([$alice, $bob] as $user) {
+            Video::factory()->for($user)->scheduledAt(now()->subMinute()->toDateTimeString())->create();
+            YoutubeConnection::create(['user_id' => $user->id, 'channel_id' => 'UC'.$user->id, 'channel_title' => 'C', 'access_token' => 't', 'refresh_token' => 'r', 'expires_at' => now()->addHour()]);
+        }
+
+        Tenant::run($alice->id, fn () => ShortsSettings::set('quota_blocked_until', now()->addHours(5)->toIso8601String()));
+
+        $this->artisan('shorts:publish-due')->assertSuccessful();
+
+        Queue::assertPushed(PublishVideoJob::class, 1);
+        $this->assertSame(Video::PUBLISH_SCHEDULED, Video::withoutGlobalScopes()->where('user_id', $alice->id)->value('publish_status'));
+        $this->assertSame(Video::PUBLISH_PUBLISHING, Video::withoutGlobalScopes()->where('user_id', $bob->id)->value('publish_status'));
     }
 
     public function test_publishing_slots_may_repeat_across_users_but_not_within_one_user(): void

@@ -2,6 +2,7 @@
 
 namespace App\Services\Shorts;
 
+use App\Models\GoogleCredential;
 use App\Models\User;
 use App\Models\Video;
 use App\Models\YoutubeConnection;
@@ -27,18 +28,36 @@ class YouTubeClient
 
     private const UPLOAD_URL = 'https://www.googleapis.com/upload/youtube/v3/videos';
 
-    public function isConfigured(): bool
+    /**
+     * The one callback address every user registers in their own Google Cloud OAuth client.
+     */
+    public static function redirectUri(): string
     {
-        return filled(config('services.google.client_id'))
-            && filled(config('services.google.client_secret'))
-            && filled(config('services.google.redirect'));
+        return rtrim((string) config('app.url'), '/').route('youtube.callback', [], false);
     }
 
-    public function authorizationUrl(string $state): string
+    /**
+     * Whether the user has saved their own Google OAuth client.
+     */
+    public function isConfigured(User $user): bool
+    {
+        return GoogleCredential::query()->withoutGlobalScopes()->where('user_id', $user->id)->exists();
+    }
+
+    /**
+     * The user's own OAuth client. Every user has their own Google project, and therefore their own API quota.
+     */
+    private function credentialsFor(int $userId): GoogleCredential
+    {
+        return GoogleCredential::query()->withoutGlobalScopes()->where('user_id', $userId)->first()
+            ?? throw new YouTubeApiException('Add your Google OAuth client ID and secret on the YouTube page first.', 400, 'noCredentials');
+    }
+
+    public function authorizationUrl(User $user, string $state): string
     {
         return self::AUTH_URL.'?'.http_build_query([
-            'client_id' => config('services.google.client_id'),
-            'redirect_uri' => config('services.google.redirect'),
+            'client_id' => $this->credentialsFor($user->id)->client_id,
+            'redirect_uri' => self::redirectUri(),
             'response_type' => 'code',
             'scope' => implode(' ', self::SCOPES),
             'access_type' => 'offline',
@@ -53,11 +72,13 @@ class YouTubeClient
      */
     public function connect(User $user, string $code): YoutubeConnection
     {
+        $credentials = $this->credentialsFor($user->id);
+
         $response = $this->send(fn () => Http::asForm()->post(self::TOKEN_URL, [
             'code' => $code,
-            'client_id' => config('services.google.client_id'),
-            'client_secret' => config('services.google.client_secret'),
-            'redirect_uri' => config('services.google.redirect'),
+            'client_id' => $credentials->client_id,
+            'client_secret' => $credentials->client_secret,
+            'redirect_uri' => self::redirectUri(),
             'grant_type' => 'authorization_code',
         ]));
 
@@ -136,9 +157,11 @@ class YouTubeClient
         }
 
         try {
+            $credentials = $this->credentialsFor($connection->user_id);
+
             $response = $this->send(fn () => Http::asForm()->post(self::TOKEN_URL, [
-                'client_id' => config('services.google.client_id'),
-                'client_secret' => config('services.google.client_secret'),
+                'client_id' => $credentials->client_id,
+                'client_secret' => $credentials->client_secret,
                 'refresh_token' => $connection->refresh_token,
                 'grant_type' => 'refresh_token',
             ]));

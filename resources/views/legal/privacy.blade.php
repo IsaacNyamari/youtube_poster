@@ -14,6 +14,8 @@
         <li><strong>youtube.upload</strong> &ndash; to upload the videos it generates to your channel, with the titles, descriptions, tags, privacy setting and schedule you configure.</li>
         <li><strong>youtube.readonly</strong> &ndash; to read basic details of your channel (channel ID, name, handle, picture, subscriber and video counts) so they can be shown on the YouTube settings page.</li>
     </ul>
+    <p>You connect your own Google Cloud project: you enter its OAuth client ID and client secret, which are stored encrypted and used only to sign in to your own YouTube channel. Other users of the app cannot see your credentials, videos or settings.</p>
+
     <p>The app also stores the account details you sign in with (name, email and a hashed password) and the content it creates (generated videos, audio files you upload and scheduling settings).</p>
 
     <h2>{{ __('How the data is used') }}</h2>
