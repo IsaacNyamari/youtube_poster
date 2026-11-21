@@ -94,9 +94,16 @@ class DeploymentRunner
      */
     private function environment(): array
     {
+        $home = storage_path('app/deploy-home');
+
+        if (! is_dir($home)) {
+            mkdir($home, 0775, true);
+        }
+
         return [
-            'HOME' => getenv('HOME') ?: base_path(),
-            'COMPOSER_HOME' => storage_path('app/composer'),
+            'HOME' => $home,
+            'COMPOSER_HOME' => $home.'/composer',
+            'npm_config_cache' => $home.'/npm',
             'GIT_TERMINAL_PROMPT' => '0',
             'GIT_SSH_COMMAND' => 'ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new',
         ];

@@ -263,7 +263,7 @@ new #[Title('Publishing')] class extends Component {
                 <flux:text class="mt-1">
                     {{ __(':jobs queued job(s), :failed failed job(s).', ['jobs' => $this->queue['jobs'], 'failed' => $this->queue['failed']]) }}
                 </flux:text>
-                <flux:text class="mt-1 text-xs">{{ __('Run a worker: php artisan queue:work --queue=publish,render,default — and the scheduler: php artisan schedule:work') }}</flux:text>
+                <flux:text class="mt-1 text-xs">{{ __('Run a worker: php artisan queue:work --queue=publish,default,render — and the scheduler: php artisan schedule:work') }}</flux:text>
                 @if ($this->queue['failed'])
                     <flux:button size="sm" class="mt-3" wire:click="retryFailedJobs">{{ __('Retry failed queue jobs') }}</flux:button>
                 @endif
