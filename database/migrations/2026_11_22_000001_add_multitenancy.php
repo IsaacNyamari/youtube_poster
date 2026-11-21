@@ -59,6 +59,12 @@ return new class extends Migration
             $table->unique('user_id', 'youtube_connections_user_unique');
         });
 
+        if (Schema::hasIndex('youtube_connections', 'youtube_connections_user_id_index')) {
+            Schema::table('youtube_connections', function (Blueprint $table) {
+                $table->dropIndex('youtube_connections_user_id_index');
+            });
+        }
+
         Schema::create('user_settings', function (Blueprint $table) {
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->string('key', 100);
@@ -100,13 +106,17 @@ return new class extends Migration
 
         Schema::dropIfExists('user_settings');
 
+        // MySQL will not drop an index that a foreign key still relies on, so keep a plain index first.
+        Schema::table('youtube_connections', function (Blueprint $table) {
+            $table->index('user_id', 'youtube_connections_user_id_index');
+        });
+
         Schema::table('youtube_connections', function (Blueprint $table) {
             $table->dropUnique('youtube_connections_user_unique');
         });
 
         Schema::table('videos', function (Blueprint $table) {
-            $table->unique('puzzle_hash', 'videos_puzzle_hash_unique');
-            $table->unique('scheduled_at', 'videos_scheduled_at_unique');
+            $table->dropForeign(['user_id']);
         });
 
         Schema::table('videos', function (Blueprint $table) {
@@ -114,11 +124,15 @@ return new class extends Migration
             $table->dropUnique('videos_user_slot_unique');
         });
 
-        foreach (['videos', 'audio_tracks'] as $tableName) {
-            Schema::table($tableName, function (Blueprint $table) {
-                $table->dropConstrainedForeignId('user_id');
-            });
-        }
+        Schema::table('videos', function (Blueprint $table) {
+            $table->dropColumn('user_id');
+            $table->unique('puzzle_hash', 'videos_puzzle_hash_unique');
+            $table->unique('scheduled_at', 'videos_scheduled_at_unique');
+        });
+
+        Schema::table('audio_tracks', function (Blueprint $table) {
+            $table->dropConstrainedForeignId('user_id');
+        });
 
         Schema::table('users', function (Blueprint $table) {
             $table->dropColumn('is_admin');
