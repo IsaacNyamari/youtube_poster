@@ -20,6 +20,10 @@ new #[Title('Publishing')] class extends Component {
 
     public bool $autoSchedule = true;
 
+    public bool $autoGenerate = true;
+
+    public int $minStock = 30;
+
     public function mount(): void
     {
         $settings = ShortsSettings::all();
@@ -29,6 +33,8 @@ new #[Title('Publishing')] class extends Component {
         $this->daysAhead = (int) $settings['days_ahead'];
         $this->timezone = (string) $settings['timezone'];
         $this->autoSchedule = (bool) $settings['auto_schedule'];
+        $this->autoGenerate = (bool) $settings['auto_generate'];
+        $this->minStock = (int) $settings['min_stock'];
     }
 
     public function save(PublishingSlots $slots): void
@@ -38,6 +44,7 @@ new #[Title('Publishing')] class extends Component {
             'postEveryDays' => 'required|integer|in:1,2,3,7',
             'daysAhead' => 'required|integer|min:1|max:60',
             'timezone' => 'required|timezone',
+            'minStock' => 'required|integer|min:0|max:500',
         ]);
 
         $times = $slots->normalizeTimes(explode(',', $this->postTimes));
@@ -53,6 +60,8 @@ new #[Title('Publishing')] class extends Component {
         ShortsSettings::set('days_ahead', $this->daysAhead);
         ShortsSettings::set('timezone', $this->timezone);
         ShortsSettings::set('auto_schedule', $this->autoSchedule);
+        ShortsSettings::set('auto_generate', $this->autoGenerate);
+        ShortsSettings::set('min_stock', $this->minStock);
 
         $this->postTimes = implode(', ', $times);
 
@@ -206,6 +215,10 @@ new #[Title('Publishing')] class extends Component {
             </flux:select>
 
             <flux:checkbox wire:model="autoSchedule" :label="__('Automatically schedule unpublished videos every hour')" />
+
+            <flux:checkbox wire:model="autoGenerate" :label="__('Automatically generate new videos to keep a minimum stock')" />
+
+            <flux:input type="number" min="0" max="500" wire:model="minStock" :label="__('Minimum stock of unpublished videos')" :description="__('Currently :n unpublished videos are ready or rendering. Up to 20 are generated per hour.', ['n' => \App\Console\Commands\AutoGenerateVideos::currentStock()])" />
 
             <flux:button type="submit" variant="primary">{{ __('Save') }}</flux:button>
         </form>
