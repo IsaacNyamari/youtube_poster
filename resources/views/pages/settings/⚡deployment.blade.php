@@ -106,8 +106,8 @@ new #[Title('Deployment')] class extends Component {
     <x-pages::settings.layout :heading="__('Deployment')" :subheading="__('Pull the latest code from your repository and update this server')">
         <div class="my-6 w-full space-y-8">
             <div class="space-y-2 text-sm">
-                <div><span class="text-zinc-500">{{ __('Repository') }}:</span> <code>{{ $this->remote ?? __('not a git checkout') }}</code></div>
-                <div><span class="text-zinc-500">{{ __('Current commit') }}:</span> <code>{{ $this->commit ? substr($this->commit, 0, 10) : '—' }}</code></div>
+                <div><span class="text-zinc-500">{{ __('Repository') }}:</span> <code class="break-all">{{ $this->remote ?? __('not a git checkout') }}</code></div>
+                <div><span class="text-zinc-500">{{ __('Current commit') }}:</span> <code class="break-all">{{ $this->commit ? substr($this->commit, 0, 10) : '—' }}</code></div>
             </div>
 
             <form wire:submit="deploy" class="space-y-4">
@@ -128,8 +128,8 @@ new #[Title('Deployment')] class extends Component {
 
                 @if ($this->secret !== '')
                     <flux:text class="text-xs">
-                        {{ __('Payload URL') }}: <code class="select-all">{{ route('deploy.webhook') }}</code><br>
-                        {{ __('Content type: application/json · Event: push · Secret') }}: <code class="select-all">{{ $this->secret }}</code>
+                        {{ __('Payload URL') }}: <code class="select-all break-all">{{ route('deploy.webhook') }}</code><br>
+                        {{ __('Content type: application/json · Event: push · Secret') }}: <code class="select-all break-all">{{ $this->secret }}</code>
                     </flux:text>
                 @endif
 
@@ -144,7 +144,7 @@ new #[Title('Deployment')] class extends Component {
                         <button type="button" wire:click="toggle({{ $deployment->id }})" class="flex w-full items-center justify-between gap-3 text-start text-sm">
                             <span>
                                 #{{ $deployment->id }} · {{ $deployment->trigger }} · {{ $deployment->branch }}
-                                @if ($deployment->commit_after) · <code>{{ substr($deployment->commit_after, 0, 7) }}</code> @endif
+                                @if ($deployment->commit_after) · <code class="break-all">{{ substr($deployment->commit_after, 0, 7) }}</code> @endif
                                 <span class="text-zinc-500">· {{ $deployment->created_at->diffForHumans() }}</span>
                             </span>
                             <flux:badge size="sm" :color="match ($deployment->status) { 'succeeded' => 'green', 'failed' => 'red', 'running' => 'blue', default => 'zinc' }">{{ $deployment->status }}</flux:badge>

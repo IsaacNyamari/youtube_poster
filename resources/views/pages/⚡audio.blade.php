@@ -82,6 +82,22 @@ new #[Title('Audio Library')] class extends Component {
 
         Flux::toast(text: __('Audio track deleted.'));
     }
+
+    public function deleteAll(): void
+    {
+        $count = 0;
+
+        AudioTrack::query()->chunkById(100, function ($tracks) use (&$count): void {
+            foreach ($tracks as $track) {
+                $track->delete();
+                $count++;
+            }
+        });
+
+        unset($this->tracks);
+
+        Flux::toast(text: __(':count audio tracks deleted.', ['count' => $count]));
+    }
 }; ?>
 
 <section class="w-full space-y-6">
@@ -97,7 +113,7 @@ new #[Title('Audio Library')] class extends Component {
 
         <div wire:loading wire:target="uploads" class="text-sm text-zinc-500">{{ __('Uploading…') }}</div>
 
-        <div class="grid gap-4 md:grid-cols-2">
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
             <flux:select wire:model="licenseType" :label="__('License / rights')">
                 @foreach (\App\Models\AudioTrack::LICENSES as $value => $label)
                     <flux:select.option :value="$value">{{ __($label) }}</flux:select.option>
@@ -112,6 +128,16 @@ new #[Title('Audio Library')] class extends Component {
 
         <flux:button type="submit" variant="primary" icon="arrow-up-tray" wire:loading.attr="disabled" wire:target="uploads,save">{{ __('Upload') }}</flux:button>
     </form>
+
+    <div class="flex flex-wrap items-center justify-between gap-3">
+        <flux:heading size="lg">{{ __('Tracks') }} ({{ $this->tracks->count() }})</flux:heading>
+
+        @if ($this->tracks->isNotEmpty())
+            <flux:button variant="danger" size="sm" icon="trash" wire:click="deleteAll" wire:confirm="{{ __('Delete ALL :count audio tracks and their files? Videos already rendered keep their audio. This cannot be undone.', ['count' => $this->tracks->count()]) }}">
+                {{ __('Delete all') }}
+            </flux:button>
+        @endif
+    </div>
 
     <flux:table>
         <flux:table.columns>

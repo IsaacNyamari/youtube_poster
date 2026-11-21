@@ -102,7 +102,7 @@ new #[Title('YouTube settings')] class extends Component {
         <flux:callout variant="danger" icon="exclamation-circle">{{ session('youtube_error') }}</flux:callout>
     @endif
 
-    <div class="grid gap-6 lg:grid-cols-2">
+    <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div class="space-y-4 rounded-xl border border-zinc-200 p-5 dark:border-zinc-700">
             <flux:heading>{{ __('Channel connection') }}</flux:heading>
 
@@ -148,7 +148,7 @@ new #[Title('YouTube settings')] class extends Component {
 
             <flux:text class="text-xs">
                 {{ __('Authorised redirect URI to register in Google Cloud:') }}
-                <code class="select-all">{{ config('services.google.redirect') ?: url('/youtube/callback') }}</code>
+                <code class="select-all break-all">{{ config('services.google.redirect') ?: url('/youtube/callback') }}</code>
             </flux:text>
         </div>
 

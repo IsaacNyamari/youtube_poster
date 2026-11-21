@@ -2,6 +2,7 @@
 
 use App\Jobs\GenerateVideosJob;
 use App\Jobs\RenderVideoJob;
+use App\Models\AudioTrack;
 use App\Models\Video;
 use App\Services\Shorts\PublishingSlots;
 use App\Services\Shorts\ShortsSettings;
@@ -150,6 +151,37 @@ new #[Title('Videos')] class extends Component {
         Flux::toast(text: __(':count videos deleted.', ['count' => $count]));
     }
 
+    #[Computed]
+    public function totalVideos(): int
+    {
+        return Video::query()->count();
+    }
+
+    /**
+     * Delete every video (and its files) except uploads currently in flight.
+     */
+    public function deleteAll(): void
+    {
+        $count = 0;
+
+        Video::query()
+            ->where('publish_status', '!=', Video::PUBLISH_PUBLISHING)
+            ->chunkById(100, function ($videos) use (&$count): void {
+                foreach ($videos as $video) {
+                    $video->delete();
+                    $count++;
+                }
+            });
+
+        AudioTrack::query()->update(['times_used' => 0]);
+
+        $this->selected = [];
+        $this->resetPage();
+        unset($this->totalVideos);
+
+        Flux::toast(text: __(':count videos deleted.', ['count' => $count]));
+    }
+
     public function selectPage(): void
     {
         $this->selected = $this->videos->pluck('id')->map(fn ($id) => (string) $id)->all();
@@ -258,6 +290,12 @@ new #[Title('Videos')] class extends Component {
         </flux:select>
 
         <flux:button size="sm" variant="ghost" wire:click="selectPage">{{ __('Select page') }}</flux:button>
+
+        @if ($this->totalVideos > 0)
+            <flux:button size="sm" variant="danger" icon="trash" wire:click="deleteAll" wire:confirm="{{ __('Delete ALL :count videos and their files? Videos already uploaded stay on YouTube, but their records here are removed. This cannot be undone.', ['count' => $this->totalVideos]) }}">
+                {{ __('Delete all') }} ({{ $this->totalVideos }})
+            </flux:button>
+        @endif
     </div>
 
     @if (count($selected))
@@ -269,7 +307,7 @@ new #[Title('Videos')] class extends Component {
         </div>
     @endif
 
-    <div class="hidden md:block">
+    <div class="hidden lg:block">
     <flux:table :paginate="$this->videos">
         <flux:table.columns>
             <flux:table.column class="w-8"></flux:table.column>
@@ -358,7 +396,7 @@ new #[Title('Videos')] class extends Component {
     </flux:table>
     </div>
 
-    <div class="space-y-3 md:hidden">
+    <div class="space-y-3 lg:hidden">
         @forelse ($this->videos as $video)
             <div class="rounded-xl border border-zinc-200 p-3 dark:border-zinc-700" wire:key="card-{{ $video->id }}">
                 <div class="flex gap-3">

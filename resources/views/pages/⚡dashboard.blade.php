@@ -102,15 +102,17 @@ new #[Title('Dashboard')] class extends Component {
             <flux:subheading>{{ __('Generate number puzzles and publish them automatically.') }}</flux:subheading>
         </div>
 
-        <div class="flex flex-wrap items-end gap-2">
+        <div class="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:flex-wrap sm:items-end">
             <form wire:submit="generate" class="flex items-end gap-2">
-                <flux:input type="number" wire:model="generateCount" min="1" max="5000" class="w-28" :label="__('Videos')" />
+                <flux:input type="number" wire:model="generateCount" min="1" max="5000" class="w-full sm:w-28" :label="__('Videos')" />
                 <flux:button type="submit" variant="primary" icon="sparkles">{{ __('Generate') }}</flux:button>
             </form>
-            <flux:button wire:click="fillSchedule" icon="calendar-days">{{ __('Fill schedule') }}</flux:button>
-            <flux:button wire:click="togglePause" :icon="$this->paused ? 'play' : 'pause'" :variant="$this->paused ? 'danger' : 'filled'">
-                {{ $this->paused ? __('Resume publishing') : __('Pause publishing') }}
-            </flux:button>
+            <div class="grid grid-cols-2 gap-2 sm:flex">
+                <flux:button wire:click="fillSchedule" icon="calendar-days" class="w-full sm:w-auto">{{ __('Fill schedule') }}</flux:button>
+                <flux:button wire:click="togglePause" :icon="$this->paused ? 'play' : 'pause'" :variant="$this->paused ? 'danger' : 'filled'" class="w-full sm:w-auto">
+                    {{ $this->paused ? __('Resume') : __('Pause') }}<span class="max-sm:hidden">&nbsp;{{ __('publishing') }}</span>
+                </flux:button>
+            </div>
         </div>
     </div>
 
@@ -138,7 +140,7 @@ new #[Title('Dashboard')] class extends Component {
         </flux:callout>
     @endif
 
-    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div class="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         @php
             $cards = [
                 [__('Total videos'), $this->stats['total'], 'film'],
@@ -153,12 +155,12 @@ new #[Title('Dashboard')] class extends Component {
         @endphp
 
         @foreach ($cards as [$label, $value, $icon])
-            <div class="rounded-xl border border-zinc-200 p-5 dark:border-zinc-700">
-                <div class="flex items-center justify-between">
-                    <flux:text>{{ $label }}</flux:text>
-                    <flux:icon :name="$icon" class="size-5 text-zinc-400" />
+            <div class="rounded-xl border border-zinc-200 p-3 dark:border-zinc-700 sm:p-5">
+                <div class="flex items-center justify-between gap-2">
+                    <flux:text class="truncate text-xs sm:text-sm">{{ $label }}</flux:text>
+                    <flux:icon :name="$icon" class="size-4 shrink-0 text-zinc-400 sm:size-5" />
                 </div>
-                <div class="mt-2 text-3xl font-semibold">{{ number_format($value) }}</div>
+                <div class="mt-1 text-2xl font-semibold sm:mt-2 sm:text-3xl">{{ number_format($value) }}</div>
             </div>
         @endforeach
     </div>
@@ -169,10 +171,10 @@ new #[Title('Dashboard')] class extends Component {
         </flux:callout>
     @endif
 
-    <div class="grid gap-6 lg:grid-cols-2">
-        <div class="rounded-xl border border-zinc-200 p-5 dark:border-zinc-700">
+    <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div class="min-w-0 rounded-xl border border-zinc-200 p-4 dark:border-zinc-700 sm:p-5">
             <div class="mb-3 flex items-center justify-between">
-                <flux:heading>{{ __('Recent generation activity') }}</flux:heading>
+                <flux:heading class="truncate">{{ __('Recent generation activity') }}</flux:heading>
                 <flux:button size="sm" variant="ghost" :href="route('videos.index')" wire:navigate>{{ __('View all') }}</flux:button>
             </div>
 
@@ -198,7 +200,7 @@ new #[Title('Dashboard')] class extends Component {
             </div>
         </div>
 
-        <div class="rounded-xl border border-zinc-200 p-5 dark:border-zinc-700">
+        <div class="min-w-0 rounded-xl border border-zinc-200 p-4 dark:border-zinc-700 sm:p-5">
             <div class="mb-3 flex items-center justify-between">
                 <flux:heading>{{ __('Upcoming publishing schedule') }}</flux:heading>
                 <flux:button size="sm" variant="ghost" :href="route('publishing.index')" wire:navigate>{{ __('Manage') }}</flux:button>
@@ -207,8 +209,10 @@ new #[Title('Dashboard')] class extends Component {
             <div class="space-y-3">
                 @forelse ($this->upcoming as $video)
                     <div class="flex items-center gap-3" wire:key="upcoming-{{ $video->id }}">
-                        <div class="w-36 shrink-0 text-sm font-medium">{{ $video->scheduled_at->setTimezone($this->timezone)->format('D, M j · H:i') }}</div>
-                        <div class="min-w-0 flex-1 truncate text-sm">{{ $video->title }}</div>
+                        <div class="min-w-0 flex-1 sm:flex sm:items-center sm:gap-3">
+                            <div class="text-sm font-medium sm:w-36 sm:shrink-0">{{ $video->scheduled_at->setTimezone($this->timezone)->format('D, M j · H:i') }}</div>
+                            <div class="truncate text-sm text-zinc-500 sm:flex-1 sm:text-inherit">{{ $video->title }}</div>
+                        </div>
                         <flux:badge size="sm" :color="$video->publish_status === 'publishing' ? 'blue' : 'zinc'">{{ $video->publish_status }}</flux:badge>
                     </div>
                 @empty

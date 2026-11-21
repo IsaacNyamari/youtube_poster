@@ -184,7 +184,7 @@ new #[Title('Publishing')] class extends Component {
         </flux:callout>
     @endif
 
-    <div class="grid gap-6 lg:grid-cols-3">
+    <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <form wire:submit="save" class="space-y-4 rounded-xl border border-zinc-200 p-5 dark:border-zinc-700 lg:col-span-1">
             <flux:heading>{{ __('Schedule preferences') }}</flux:heading>
 
