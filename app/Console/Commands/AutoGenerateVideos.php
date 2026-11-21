@@ -3,21 +3,16 @@
 namespace App\Console\Commands;
 
 use App\Jobs\GenerateVideosJob;
-use App\Models\Video;
 use App\Services\Shorts\ShortsSettings;
+use Carbon\CarbonImmutable;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
 
 #[Signature('shorts:auto-generate')]
-#[Description('Generate new videos so a minimum stock of unpublished videos is always available')]
+#[Description('Generate the configured number of new videos each day')]
 class AutoGenerateVideos extends Command
 {
-    /**
-     * Largest batch queued in one run, so rendering never floods the server.
-     */
-    private const MAX_PER_RUN = 20;
-
     public function handle(): int
     {
         if (! ShortsSettings::get('auto_generate')) {
@@ -26,31 +21,39 @@ class AutoGenerateVideos extends Command
             return self::SUCCESS;
         }
 
-        $minimumStock = max(0, (int) ShortsSettings::get('min_stock'));
-        $stock = self::currentStock();
-        $missing = min(self::MAX_PER_RUN, $minimumStock - $stock);
+        $perDay = max(0, (int) ShortsSettings::get('generate_per_day'));
+        $remaining = $perDay - self::generatedToday();
 
-        if ($missing <= 0) {
-            $this->info("Stock is {$stock} (minimum {$minimumStock}); nothing to generate.");
+        if ($remaining <= 0) {
+            $this->info("Already generated {$perDay} video(s) today; nothing to do.");
 
             return self::SUCCESS;
         }
 
-        GenerateVideosJob::dispatch($missing);
+        GenerateVideosJob::dispatch($remaining);
 
-        $this->info("Stock is {$stock} (minimum {$minimumStock}); queued {$missing} new video(s).");
+        ShortsSettings::set('auto_generate_log', [
+            'date' => self::today(),
+            'count' => $perDay,
+        ]);
+
+        $this->info("Queued {$remaining} new video(s) ({$perDay} per day).");
 
         return self::SUCCESS;
     }
 
     /**
-     * Videos that are rendered or being rendered and have not been scheduled or published yet.
+     * How many videos were queued automatically today, in the configured time zone.
      */
-    public static function currentStock(): int
+    public static function generatedToday(): int
     {
-        return Video::query()
-            ->where('publish_status', Video::PUBLISH_PENDING)
-            ->whereIn('render_status', [Video::RENDER_PENDING, Video::RENDER_RENDERING, Video::RENDER_READY])
-            ->count();
+        $log = (array) ShortsSettings::get('auto_generate_log');
+
+        return ($log['date'] ?? null) === self::today() ? (int) ($log['count'] ?? 0) : 0;
+    }
+
+    private static function today(): string
+    {
+        return CarbonImmutable::now((string) ShortsSettings::get('timezone'))->toDateString();
     }
 }

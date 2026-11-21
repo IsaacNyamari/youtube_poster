@@ -22,7 +22,7 @@ new #[Title('Publishing')] class extends Component {
 
     public bool $autoGenerate = true;
 
-    public int $minStock = 30;
+    public int $generatePerDay = 6;
 
     public function mount(): void
     {
@@ -34,7 +34,7 @@ new #[Title('Publishing')] class extends Component {
         $this->timezone = (string) $settings['timezone'];
         $this->autoSchedule = (bool) $settings['auto_schedule'];
         $this->autoGenerate = (bool) $settings['auto_generate'];
-        $this->minStock = (int) $settings['min_stock'];
+        $this->generatePerDay = (int) $settings['generate_per_day'];
     }
 
     public function save(PublishingSlots $slots): void
@@ -44,7 +44,7 @@ new #[Title('Publishing')] class extends Component {
             'postEveryDays' => 'required|integer|in:1,2,3,7',
             'daysAhead' => 'required|integer|min:1|max:60',
             'timezone' => 'required|timezone',
-            'minStock' => 'required|integer|min:0|max:500',
+            'generatePerDay' => 'required|integer|min:0|max:100',
         ]);
 
         $times = $slots->normalizeTimes(explode(',', $this->postTimes));
@@ -61,7 +61,7 @@ new #[Title('Publishing')] class extends Component {
         ShortsSettings::set('timezone', $this->timezone);
         ShortsSettings::set('auto_schedule', $this->autoSchedule);
         ShortsSettings::set('auto_generate', $this->autoGenerate);
-        ShortsSettings::set('min_stock', $this->minStock);
+        ShortsSettings::set('generate_per_day', $this->generatePerDay);
 
         $this->postTimes = implode(', ', $times);
 
@@ -216,9 +216,9 @@ new #[Title('Publishing')] class extends Component {
 
             <flux:checkbox wire:model="autoSchedule" :label="__('Automatically schedule unpublished videos every hour')" />
 
-            <flux:checkbox wire:model="autoGenerate" :label="__('Automatically generate new videos to keep a minimum stock')" />
+            <flux:checkbox wire:model="autoGenerate" :label="__('Automatically generate new videos every day')" />
 
-            <flux:input type="number" min="0" max="500" wire:model="minStock" :label="__('Minimum stock of unpublished videos')" :description="__('Currently :n unpublished videos are ready or rendering. Up to 20 are generated per hour.', ['n' => \App\Console\Commands\AutoGenerateVideos::currentStock()])" />
+            <flux:input type="number" min="0" max="100" wire:model="generatePerDay" :label="__('Videos to generate per day')" :description="__('Created once a day. Already queued today: :n.', ['n' => \App\Console\Commands\AutoGenerateVideos::generatedToday()])" />
 
             <flux:button type="submit" variant="primary">{{ __('Save') }}</flux:button>
         </form>

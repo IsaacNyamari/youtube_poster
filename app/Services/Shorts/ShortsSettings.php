@@ -16,7 +16,7 @@ class ShortsSettings
             'paused' => false,
             'auto_schedule' => true,
             'auto_generate' => true,
-            'min_stock' => 30,
+            'generate_per_day' => 6,
             'post_times' => ['09:00', '15:00', '20:00'],
             'post_every_days' => 1,
             'days_ahead' => 3,
