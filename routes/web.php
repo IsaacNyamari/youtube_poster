@@ -6,7 +6,7 @@ use App\Http\Controllers\YouTubeOAuthController;
 use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
 use Illuminate\Support\Facades\Route;
 
-Route::view('/', 'welcome')->name('home');
+Route::redirect('/', '/login')->name('home');
 
 Route::post('deploy/webhook', DeployWebhookController::class)
     ->withoutMiddleware([ValidateCsrfToken::class])
