@@ -269,6 +269,7 @@ new #[Title('Videos')] class extends Component {
         </div>
     @endif
 
+    <div class="hidden md:block">
     <flux:table :paginate="$this->videos">
         <flux:table.columns>
             <flux:table.column class="w-8"></flux:table.column>
@@ -343,40 +344,7 @@ new #[Title('Videos')] class extends Component {
                     </flux:table.cell>
 
                     <flux:table.cell>
-                        <flux:dropdown align="end">
-                            <flux:button size="sm" variant="ghost" icon="ellipsis-horizontal" />
-
-                            <flux:menu>
-                                @if ($video->isReady())
-                                    <flux:menu.item icon="play" wire:click="openPreview({{ $video->id }})">{{ __('Preview') }}</flux:menu.item>
-                                @endif
-
-                                @if ($video->render_status === 'failed')
-                                    <flux:menu.item icon="arrow-path" wire:click="rerender({{ $video->id }})">{{ __('Retry render') }}</flux:menu.item>
-                                @endif
-
-                                @if ($video->isReady() && ! in_array($video->publish_status, ['published', 'publishing']))
-                                    <flux:menu.item icon="calendar-days" wire:click="openSchedule({{ $video->id }})">{{ __('Schedule') }}</flux:menu.item>
-                                    <flux:menu.item icon="bolt" wire:click="publishNow({{ $video->id }})">{{ __('Publish now') }}</flux:menu.item>
-                                @endif
-
-                                @if ($video->publish_status === 'scheduled')
-                                    <flux:menu.item icon="x-mark" wire:click="unschedule({{ $video->id }})">{{ __('Unschedule') }}</flux:menu.item>
-                                @endif
-
-                                @if ($video->publish_status === 'failed')
-                                    <flux:menu.item icon="arrow-path" wire:click="retryUpload({{ $video->id }})">{{ __('Retry upload') }}</flux:menu.item>
-                                @endif
-
-                                @if (! in_array($video->publish_status, ['published', 'publishing']))
-                                    <flux:menu.item icon="sparkles" wire:click="regenerate({{ $video->id }})" wire:confirm="{{ __('Replace this video with a brand new puzzle?') }}">{{ __('Regenerate') }}</flux:menu.item>
-                                @endif
-
-                                <flux:menu.separator />
-
-                                <flux:menu.item icon="trash" variant="danger" wire:click="delete({{ $video->id }})" wire:confirm="{{ __('Delete this video and its files?') }}">{{ __('Delete') }}</flux:menu.item>
-                            </flux:menu>
-                        </flux:dropdown>
+                        @include('partials.video-actions', ['video' => $video])
                     </flux:table.cell>
                 </flux:table.row>
             @empty
@@ -388,6 +356,68 @@ new #[Title('Videos')] class extends Component {
             @endforelse
         </flux:table.rows>
     </flux:table>
+    </div>
+
+    <div class="space-y-3 md:hidden">
+        @forelse ($this->videos as $video)
+            <div class="rounded-xl border border-zinc-200 p-3 dark:border-zinc-700" wire:key="card-{{ $video->id }}">
+                <div class="flex gap-3">
+                    <flux:checkbox wire:model.live="selected" :value="$video->id" class="mt-1" />
+
+                    @if ($video->thumbnail_path)
+                        <button type="button" wire:click="openPreview({{ $video->id }})" class="shrink-0">
+                            <img src="{{ route('media.thumbnail', $video) }}" class="h-24 w-14 rounded object-cover" alt="">
+                        </button>
+                    @else
+                        <div class="flex h-24 w-14 shrink-0 items-center justify-center rounded bg-zinc-100 dark:bg-zinc-700">
+                            @if ($video->render_status === 'failed')
+                                <flux:icon.exclamation-triangle class="size-5 text-red-500" />
+                            @else
+                                <flux:icon.loading class="size-5" />
+                            @endif
+                        </div>
+                    @endif
+
+                    <div class="min-w-0 flex-1">
+                        <div class="text-sm font-medium leading-snug">{{ $video->title }}</div>
+                        <div class="mt-1 text-xs text-zinc-500">
+                            {{ __('Answer') }}: <span class="font-mono font-semibold text-zinc-900 dark:text-zinc-100">{{ $video->odd_number }}</span>
+                            ({{ __('among') }} {{ $video->base_number }})
+                        </div>
+                        <div class="mt-2 flex flex-wrap gap-1">
+                            <flux:badge size="sm" :color="match ($video->render_status) { 'ready' => 'green', 'failed' => 'red', default => 'amber' }">{{ __('render') }}: {{ $video->render_status }}</flux:badge>
+                            <flux:badge size="sm" :color="match ($video->publish_status) { 'published' => 'green', 'scheduled' => 'blue', 'publishing' => 'blue', 'failed' => 'red', default => 'zinc' }">{{ $video->publish_status }}</flux:badge>
+                        </div>
+                    </div>
+
+                    <div class="shrink-0">
+                        @include('partials.video-actions', ['video' => $video])
+                    </div>
+                </div>
+
+                <div class="mt-3 space-y-1 text-xs text-zinc-500">
+                    <div>{{ __('Audio') }}: {{ $video->audioTrack?->title ?? '—' }}</div>
+                    <div>{{ __('Generated') }}: {{ $video->created_at->format('M j, H:i') }}</div>
+                    @if ($video->scheduled_at)
+                        <div>{{ __('Scheduled') }}: {{ $video->scheduled_at->setTimezone($this->timezone)->format('M j, H:i') }}</div>
+                    @endif
+                    @if ($video->youtubeUrl())
+                        <div><a href="{{ $video->youtubeUrl() }}" target="_blank" class="text-blue-500 hover:underline">{{ __('View on YouTube') }}</a></div>
+                    @endif
+                    @if ($video->render_error)
+                        <div class="text-red-500">{{ \Illuminate\Support\Str::limit($video->render_error, 160) }}</div>
+                    @endif
+                    @if ($video->publish_error)
+                        <div class="text-red-500">{{ \Illuminate\Support\Str::limit($video->publish_error, 160) }}</div>
+                    @endif
+                </div>
+            </div>
+        @empty
+            <flux:text>{{ __('No videos found.') }}</flux:text>
+        @endforelse
+
+        <flux:pagination :paginator="$this->videos" />
+    </div>
 
     <flux:modal name="preview" class="w-full max-w-md" x-on:close="$wire.closePreview()">
         @if ($this->previewVideo)
