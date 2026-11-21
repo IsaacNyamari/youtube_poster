@@ -160,7 +160,9 @@ return [
     |
     */
 
-    'features' => [
+    'features' => array_filter([
+        // Public sign-up is off by default; set REGISTRATION_ENABLED=true to let people create accounts.
+        env('REGISTRATION_ENABLED', false) ? Features::registration() : null,
         Features::resetPasswords(),
         Features::emailVerification(),
         Features::twoFactorAuthentication([
@@ -171,6 +173,6 @@ return [
         Features::passkeys([
             'confirmPassword' => true,
         ]),
-    ],
+    ]),
 
 ];

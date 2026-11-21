@@ -3,10 +3,22 @@
 namespace App\Services\Shorts;
 
 use App\Models\ShortsSetting;
+use App\Support\Tenant;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\DB;
 
+/**
+ * Settings are stored per user (workspace). A few keys are shared by the whole installation.
+ */
 class ShortsSettings
 {
+    /**
+     * Keys stored once for the installation, not per user.
+     *
+     * @var list<string>
+     */
+    public const GLOBAL_KEYS = ['deploy_branch', 'deploy_webhook_secret'];
+
     /**
      * @return array<string, mixed>
      */
@@ -26,32 +38,59 @@ class ShortsSettings
             'made_for_kids' => false,
             'extra_tags' => [],
             'upload_mode' => 'at_time',
-            'quota_blocked_until' => null,
+            'notify_published' => true,
         ];
     }
 
     public static function get(string $key, mixed $default = null): mixed
     {
-        $row = ShortsSetting::query()->find($key);
+        $fallback = $default ?? (self::defaults()[$key] ?? null);
 
-        if ($row === null) {
-            return $default ?? (self::defaults()[$key] ?? null);
+        if (self::isGlobal($key)) {
+            $row = ShortsSetting::query()->find($key);
+
+            return $row === null ? $fallback : json_decode((string) $row->value, true);
         }
 
-        return json_decode((string) $row->value, true);
+        $userId = Tenant::id();
+
+        if ($userId === null) {
+            return $fallback;
+        }
+
+        $value = DB::table('user_settings')->where('user_id', $userId)->where('key', $key)->value('value');
+
+        return $value === null ? $fallback : json_decode((string) $value, true);
     }
 
     public static function set(string $key, mixed $value): void
     {
-        ShortsSetting::query()->updateOrCreate(['key' => $key], ['value' => json_encode($value)]);
+        if (self::isGlobal($key)) {
+            ShortsSetting::query()->updateOrCreate(['key' => $key], ['value' => json_encode($value)]);
+
+            return;
+        }
+
+        DB::table('user_settings')->updateOrInsert(
+            ['user_id' => Tenant::requireId(), 'key' => $key],
+            ['value' => json_encode($value), 'updated_at' => now(), 'created_at' => now()],
+        );
     }
 
     /**
+     * The current user's settings merged over the defaults.
+     *
      * @return array<string, mixed>
      */
     public static function all(): array
     {
-        $stored = ShortsSetting::query()->pluck('value', 'key')
+        $userId = Tenant::id();
+
+        if ($userId === null) {
+            return self::defaults();
+        }
+
+        $stored = DB::table('user_settings')->where('user_id', $userId)->pluck('value', 'key')
             ->map(fn ($value) => json_decode((string) $value, true))
             ->all();
 
@@ -74,5 +113,10 @@ class ShortsSettings
         $until = CarbonImmutable::parse($value);
 
         return $until->isFuture() ? $until : null;
+    }
+
+    private static function isGlobal(string $key): bool
+    {
+        return in_array($key, self::GLOBAL_KEYS, true);
     }
 }

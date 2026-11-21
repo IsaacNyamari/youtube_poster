@@ -3,47 +3,66 @@
 namespace App\Console\Commands;
 
 use App\Jobs\GenerateVideosJob;
+use App\Models\User;
+use App\Models\YoutubeConnection;
 use App\Services\Shorts\ShortsSettings;
+use App\Support\Tenant;
 use Carbon\CarbonImmutable;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
 
 #[Signature('shorts:auto-generate')]
-#[Description('Generate the configured number of new videos each day')]
+#[Description('Generate each connected user\'s configured number of new videos per day')]
 class AutoGenerateVideos extends Command
 {
     public function handle(): int
     {
-        if (! ShortsSettings::get('auto_generate')) {
-            $this->info('Automatic generation is off.');
+        $queued = 0;
 
-            return self::SUCCESS;
+        Tenant::eachUser(function (User $user) use (&$queued): void {
+            $queued += $this->generateFor($user);
+        });
+
+        $this->info("Queued {$queued} new video(s) in total.");
+
+        return self::SUCCESS;
+    }
+
+    /**
+     * Only users with a working YouTube connection get automatic videos, so unused accounts cost no rendering time.
+     */
+    private function generateFor(User $user): int
+    {
+        if (! ShortsSettings::get('auto_generate')) {
+            return 0;
+        }
+
+        $connection = YoutubeConnection::current();
+
+        if ($connection === null || $connection->needs_reauth) {
+            return 0;
         }
 
         $perDay = max(0, (int) ShortsSettings::get('generate_per_day'));
         $remaining = $perDay - self::generatedToday();
 
         if ($remaining <= 0) {
-            $this->info("Already generated {$perDay} video(s) today; nothing to do.");
-
-            return self::SUCCESS;
+            return 0;
         }
 
-        GenerateVideosJob::dispatch($remaining);
+        GenerateVideosJob::dispatch($remaining, $user->id);
 
         ShortsSettings::set('auto_generate_log', [
             'date' => self::today(),
             'count' => $perDay,
         ]);
 
-        $this->info("Queued {$remaining} new video(s) ({$perDay} per day).");
-
-        return self::SUCCESS;
+        return $remaining;
     }
 
     /**
-     * How many videos were queued automatically today, in the configured time zone.
+     * How many videos were queued automatically today for the current user, in their time zone.
      */
     public static function generatedToday(): int
     {

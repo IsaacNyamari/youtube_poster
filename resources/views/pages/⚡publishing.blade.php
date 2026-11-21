@@ -123,8 +123,8 @@ new #[Title('Publishing')] class extends Component {
     public function queue(): array
     {
         return [
-            'jobs' => DB::table('jobs')->count(),
-            'failed' => DB::table('failed_jobs')->count(),
+            'jobs' => auth()->user()->is_admin ? DB::table('jobs')->count() : 0,
+            'failed' => auth()->user()->is_admin ? DB::table('failed_jobs')->count() : 0,
             'unscheduled' => Video::ready()->where('publish_status', Video::PUBLISH_PENDING)->count(),
         ];
     }
@@ -177,6 +177,8 @@ new #[Title('Publishing')] class extends Component {
 
     public function retryFailedJobs(): void
     {
+        abort_unless(auth()->user()->is_admin, 403);
+
         \Illuminate\Support\Facades\Artisan::call('queue:retry', ['id' => ['all']]);
 
         Flux::toast(text: __('Failed queue jobs were pushed back onto the queue.'));
@@ -289,8 +291,9 @@ new #[Title('Publishing')] class extends Component {
                 </div>
             </div>
 
+            @if (auth()->user()->is_admin)
             <div class="rounded-xl border border-zinc-200 p-5 dark:border-zinc-700">
-                <flux:heading>{{ __('Queue') }}</flux:heading>
+                <flux:heading>{{ __('Queue (all users)') }}</flux:heading>
                 <flux:text class="mt-1">
                     {{ __(':jobs queued job(s), :failed failed job(s).', ['jobs' => $this->queue['jobs'], 'failed' => $this->queue['failed']]) }}
                 </flux:text>
@@ -299,6 +302,7 @@ new #[Title('Publishing')] class extends Component {
                     <flux:button size="sm" class="mt-3" wire:click="retryFailedJobs">{{ __('Retry failed queue jobs') }}</flux:button>
                 @endif
             </div>
+            @endif
         </div>
     </div>
 </section>

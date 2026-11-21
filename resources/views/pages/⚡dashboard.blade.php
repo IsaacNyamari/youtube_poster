@@ -7,6 +7,7 @@ use App\Models\YoutubeConnection;
 use App\Services\Shorts\PublishingSlots;
 use App\Services\Shorts\ShortsSettings;
 use Flux\Flux;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
@@ -31,8 +32,8 @@ new #[Title('Dashboard')] class extends Component {
             'render_failed' => Video::where('render_status', Video::RENDER_FAILED)->count(),
             'audio' => AudioTrack::count(),
             'audio_active' => AudioTrack::where('is_active', true)->count(),
-            'queued_jobs' => DB::table('jobs')->count(),
-            'failed_jobs' => DB::table('failed_jobs')->count(),
+            'queued_jobs' => Auth::user()->is_admin ? DB::table('jobs')->count() : null,
+            'failed_jobs' => Auth::user()->is_admin ? DB::table('failed_jobs')->count() : null,
         ];
     }
 
@@ -74,7 +75,7 @@ new #[Title('Dashboard')] class extends Component {
     {
         $this->validate(['generateCount' => 'required|integer|min:1|max:5000']);
 
-        GenerateVideosJob::dispatch($this->generateCount);
+        GenerateVideosJob::dispatch($this->generateCount, Auth::id());
 
         Flux::toast(variant: 'success', text: __(':count videos queued for generation.', ['count' => $this->generateCount]));
     }
@@ -150,8 +151,11 @@ new #[Title('Dashboard')] class extends Component {
                 [__('Failed uploads'), $this->stats['failed'], 'exclamation-circle'],
                 [__('Rendering'), $this->stats['rendering'], 'cog-6-tooth'],
                 [__('Audio tracks'), $this->stats['audio'], 'musical-note'],
-                [__('Queued jobs'), $this->stats['queued_jobs'], 'queue-list'],
             ];
+
+            if (Auth::user()->is_admin) {
+                $cards[] = [__('Queued jobs'), $this->stats['queued_jobs'], 'queue-list'];
+            }
         @endphp
 
         @foreach ($cards as [$label, $value, $icon])

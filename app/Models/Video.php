@@ -2,13 +2,16 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\Storage;
 
 #[Fillable([
+    'user_id',
     'title', 'description', 'tags', 'puzzle_hash', 'pattern', 'base_number', 'odd_number',
     'grid_rows', 'grid_cols', 'answer_row', 'answer_col', 'style', 'audio_track_id',
     'file_path', 'thumbnail_path', 'duration', 'file_size', 'render_status', 'render_error',
@@ -17,6 +20,8 @@ use Illuminate\Support\Facades\Storage;
 ])]
 class Video extends Model
 {
+    use BelongsToTenant, HasFactory;
+
     public const RENDER_PENDING = 'pending';
 
     public const RENDER_RENDERING = 'rendering';

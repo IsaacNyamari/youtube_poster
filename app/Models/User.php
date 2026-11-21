@@ -3,9 +3,12 @@
 namespace App\Models;
 
 use Database\Factories\UserFactory;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Carbon;
@@ -18,6 +21,7 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
  * @property int $id
  * @property string $name
  * @property string $email
+ * @property bool $is_admin
  * @property Carbon|null $email_verified_at
  * @property string $password
  * @property string|null $two_factor_secret
@@ -29,7 +33,7 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
  */
 #[Fillable(['name', 'email', 'password'])]
 #[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
-class User extends Authenticatable implements PasskeyUser
+class User extends Authenticatable implements MustVerifyEmail, PasskeyUser
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable, PasskeyAuthenticatable, TwoFactorAuthenticatable;
@@ -44,7 +48,34 @@ class User extends Authenticatable implements PasskeyUser
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'is_admin' => 'boolean',
         ];
+    }
+
+    public function videos(): HasMany
+    {
+        return $this->hasMany(Video::class)->withoutGlobalScopes();
+    }
+
+    public function audioTracks(): HasMany
+    {
+        return $this->hasMany(AudioTrack::class)->withoutGlobalScopes();
+    }
+
+    public function youtubeConnection(): HasOne
+    {
+        return $this->hasOne(YoutubeConnection::class)->withoutGlobalScopes();
+    }
+
+    /**
+     * Remove the user's files from storage when the account is deleted (database rows cascade).
+     */
+    protected static function booted(): void
+    {
+        static::deleting(function (User $user): void {
+            $user->videos()->each(fn (Video $video) => $video->delete());
+            $user->audioTracks()->each(fn (AudioTrack $track) => $track->delete());
+        });
     }
 
     /**
