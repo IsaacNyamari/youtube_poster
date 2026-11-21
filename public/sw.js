@@ -1,5 +1,5 @@
-const VERSION = 'v2';
-const STATIC_CACHE = `autoposter-static-${VERSION}`;
+const VERSION = 'v3';
+const STATIC_CACHE = `shorts-studio-static-${VERSION}`;
 const PRECACHE = ['/offline.html', '/icons/icon-192.png', '/icons/icon-512.png', '/favicon.svg'];
 
 // Never intercept dynamic or large streamed requests.

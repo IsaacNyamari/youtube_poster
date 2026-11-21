@@ -1,6 +1,6 @@
 {
-    "name": "YouTube Autoposter",
-    "short_name": "Autoposter",
+    "name": "Shorts Studio",
+    "short_name": "Shorts Studio",
     "description": "Generate number-puzzle Shorts and publish them to YouTube automatically.",
     "id": "/",
     "start_url": "/dashboard",
