@@ -187,6 +187,33 @@ class PublishingSlots
     }
 
     /**
+     * Move every upcoming scheduled video onto the currently configured posting times, keeping their order.
+     * Videos that are already due or uploading are left alone.
+     */
+    public function refit(): int
+    {
+        $ids = Video::query()
+            ->where('publish_status', Video::PUBLISH_SCHEDULED)
+            ->where('scheduled_at', '>', now()->addMinute())
+            ->orderBy('scheduled_at')
+            ->pluck('id')
+            ->all();
+
+        if ($ids === []) {
+            return 0;
+        }
+
+        Video::query()->whereIn('id', $ids)->update([
+            'publish_status' => Video::PUBLISH_PENDING,
+            'scheduled_at' => null,
+        ]);
+
+        $videos = Video::query()->findMany($ids)->sortBy(fn (Video $video): int => (int) array_search($video->id, $ids));
+
+        return $this->scheduleMany($videos);
+    }
+
+    /**
      * Fill the free slots within the configured horizon with unscheduled videos.
      */
     public function autoFill(): int

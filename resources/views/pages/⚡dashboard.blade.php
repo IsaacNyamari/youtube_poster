@@ -185,7 +185,7 @@ new #[Title('Dashboard')] class extends Component {
                             <img src="{{ route('media.thumbnail', $video) }}" class="h-14 w-8 rounded object-cover" alt="">
                         @else
                             <div class="flex h-14 w-8 items-center justify-center rounded bg-zinc-100 dark:bg-zinc-700">
-                                <flux:icon.loading class="size-4" />
+                                @if ($video->render_status === 'ready')<flux:icon.archive-box class="size-4 text-zinc-400" />@else<flux:icon.loading class="size-4" />@endif
                             </div>
                         @endif
                         <div class="min-w-0 flex-1">

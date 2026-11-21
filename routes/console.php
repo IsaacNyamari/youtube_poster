@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Schedule;
 Schedule::command('shorts:auto-generate')->hourly()->withoutOverlapping();
 Schedule::command('shorts:auto-schedule')->hourly()->withoutOverlapping();
 Schedule::command('shorts:publish-due')->everyMinute()->withoutOverlapping();
+Schedule::command('shorts:cleanup-published')->hourly()->withoutOverlapping();
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());

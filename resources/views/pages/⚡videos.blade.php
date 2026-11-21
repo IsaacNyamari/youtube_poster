@@ -154,18 +154,19 @@ new #[Title('Videos')] class extends Component {
     #[Computed]
     public function totalVideos(): int
     {
-        return Video::query()->count();
+        return Video::query()->whereNotIn('publish_status', [Video::PUBLISH_PUBLISHING, Video::PUBLISH_PUBLISHED])->count();
     }
 
     /**
-     * Delete every video (and its files) except uploads currently in flight.
+     * Delete every unpublished video and its files. Published videos keep their record so a puzzle is never reused,
+     * and uploads currently in flight are skipped.
      */
     public function deleteAll(): void
     {
         $count = 0;
 
         Video::query()
-            ->where('publish_status', '!=', Video::PUBLISH_PUBLISHING)
+            ->whereNotIn('publish_status', [Video::PUBLISH_PUBLISHING, Video::PUBLISH_PUBLISHED])
             ->chunkById(100, function ($videos) use (&$count): void {
                 foreach ($videos as $video) {
                     $video->delete();
@@ -292,7 +293,7 @@ new #[Title('Videos')] class extends Component {
         <flux:button size="sm" variant="ghost" wire:click="selectPage">{{ __('Select page') }}</flux:button>
 
         @if ($this->totalVideos > 0)
-            <flux:button size="sm" variant="danger" icon="trash" wire:click="deleteAll" wire:confirm="{{ __('Delete ALL :count videos and their files? Videos already uploaded stay on YouTube, but their records here are removed. This cannot be undone.', ['count' => $this->totalVideos]) }}">
+            <flux:button size="sm" variant="danger" icon="trash" wire:click="deleteAll" wire:confirm="{{ __('Delete :count unpublished videos and their files? Published videos are kept as records so a puzzle is never used twice. This cannot be undone.', ['count' => $this->totalVideos]) }}">
                 {{ __('Delete all') }} ({{ $this->totalVideos }})
             </flux:button>
         @endif
@@ -337,6 +338,8 @@ new #[Title('Videos')] class extends Component {
                                 <div class="flex h-20 w-12 shrink-0 items-center justify-center rounded bg-zinc-100 dark:bg-zinc-700">
                                     @if ($video->render_status === 'failed')
                                         <flux:icon.exclamation-triangle class="size-5 text-red-500" />
+                                    @elseif ($video->render_status === 'ready')
+                                        <flux:icon.archive-box class="size-5 text-zinc-400" />
                                     @else
                                         <flux:icon.loading class="size-5" />
                                     @endif
@@ -410,7 +413,9 @@ new #[Title('Videos')] class extends Component {
                         <div class="flex h-24 w-14 shrink-0 items-center justify-center rounded bg-zinc-100 dark:bg-zinc-700">
                             @if ($video->render_status === 'failed')
                                 <flux:icon.exclamation-triangle class="size-5 text-red-500" />
-                            @else
+                            @elseif ($video->render_status === 'ready')
+                                        <flux:icon.archive-box class="size-5 text-zinc-400" />
+                                    @else
                                 <flux:icon.loading class="size-5" />
                             @endif
                         </div>

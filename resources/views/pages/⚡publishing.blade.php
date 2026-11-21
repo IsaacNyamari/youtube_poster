@@ -55,6 +55,10 @@ new #[Title('Publishing')] class extends Component {
             return;
         }
 
+        $timesChanged = $times !== array_values((array) ShortsSettings::get('post_times'))
+            || $this->postEveryDays !== (int) ShortsSettings::get('post_every_days')
+            || $this->timezone !== (string) ShortsSettings::get('timezone');
+
         ShortsSettings::set('post_times', $times);
         ShortsSettings::set('post_every_days', $this->postEveryDays);
         ShortsSettings::set('days_ahead', $this->daysAhead);
@@ -65,7 +69,20 @@ new #[Title('Publishing')] class extends Component {
 
         $this->postTimes = implode(', ', $times);
 
+        if ($timesChanged) {
+            $moved = $slots->refit();
+
+            Flux::toast(variant: 'success', text: __('Saved. :count scheduled videos were moved onto the new posting times.', ['count' => $moved]));
+
+            return;
+        }
+
         Flux::toast(variant: 'success', text: __('Publishing preferences saved.'));
+    }
+
+    public function refitSchedule(PublishingSlots $slots): void
+    {
+        Flux::toast(variant: 'success', text: __(':count scheduled videos were moved onto the posting times.', ['count' => $slots->refit()]));
     }
 
     #[Computed]
@@ -175,6 +192,7 @@ new #[Title('Publishing')] class extends Component {
 
         <div class="flex gap-2">
             <flux:button icon="calendar-days" wire:click="fillSchedule">{{ __('Fill schedule now') }}</flux:button>
+            <flux:button icon="arrows-right-left" wire:click="refitSchedule" wire:confirm="{{ __('Move every upcoming scheduled video onto the current posting times?') }}">{{ __('Re-fit schedule') }}</flux:button>
             <flux:button wire:click="togglePause" :icon="$this->paused ? 'play' : 'pause'" :variant="$this->paused ? 'danger' : 'filled'">
                 {{ $this->paused ? __('Resume publishing') : __('Pause publishing') }}
             </flux:button>

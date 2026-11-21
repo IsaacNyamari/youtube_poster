@@ -28,6 +28,15 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Video and thumbnail files are deleted this many minutes after a video is
+    | published. The database record stays so a puzzle is never used twice.
+    |--------------------------------------------------------------------------
+    */
+
+    'delete_published_after_minutes' => (int) env('DELETE_PUBLISHED_AFTER_MINUTES', 60),
+
+    /*
+    |--------------------------------------------------------------------------
     | Queues
     |--------------------------------------------------------------------------
     */
