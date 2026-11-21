@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 34" {{ $attributes }}>
+    <rect width="48" height="34" rx="9" fill="#FF0000" />
+    <path d="M19 9.5v15l13-7.5-13-7.5Z" fill="#FFFFFF" />
+</svg>
