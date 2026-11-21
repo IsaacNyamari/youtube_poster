@@ -8,6 +8,9 @@ use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/login')->name('home');
 
+Route::view('privacy', 'legal.privacy')->name('privacy');
+Route::view('terms', 'legal.terms')->name('terms');
+
 Route::post('deploy/webhook', DeployWebhookController::class)
     ->withoutMiddleware([ValidateCsrfToken::class])
     ->name('deploy.webhook');

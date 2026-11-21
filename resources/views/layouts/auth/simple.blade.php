@@ -15,6 +15,10 @@
                 <div class="flex flex-col gap-6">
                     {{ $slot }}
                 </div>
+                <div class="flex justify-center gap-4 text-xs text-zinc-500">
+                    <a href="{{ route('privacy') }}" class="hover:underline">{{ __('Privacy Policy') }}</a>
+                    <a href="{{ route('terms') }}" class="hover:underline">{{ __('Terms of Service') }}</a>
+                </div>
             </div>
         </div>
 
